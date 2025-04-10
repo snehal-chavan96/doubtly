@@ -2,89 +2,138 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Vanilla JS ChatBox</title>
-<style>
+  <title>Doubt Solver MVP</title>
+  <style>
     body {
-  font-family: sans-serif;
-  display: flex;
-  justify-content: center;
-  margin-top: 50px;
-}
-
-.chat-container {
-  border: 1px solid #ccc;
-  padding: 16px;
-  width: 300px;
-  border-radius: 8px;
-  box-shadow: 0 0 8px rgba(0,0,0,0.1);
-}
-
-.chat-box {
-  height: 200px;
-  overflow-y: auto;
-  border: 1px solid #eee;
-  padding: 8px;
-  margin-bottom: 10px;
-  background: #f9f9f9;
-}
-
-#message-input {
-  width: 100%;
-  padding: 8px;
-  margin-bottom: 8px;
-  box-sizing: border-box;
-}
-
-#send-button {
-  width: 100%;
-  padding: 8px;
-  background-color: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 4px;
-}
-
-</style>
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f9f9f9;
+    }
+    h1 {
+      text-align: center;
+    }
+    .form-container, .questions-container {
+      max-width: 700px;
+      margin: 20px auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    textarea, input {
+      width: 100%;
+      margin-top: 8px;
+      margin-bottom: 12px;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    button {
+      padding: 10px 20px;
+      background: #007bff;
+      border: none;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    .question-card {
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      background: #fafafa;
+    }
+    .tags {
+      color: #555;
+      font-size: 0.9em;
+    }
+    pre {
+      background: #eee;
+      padding: 10px;
+      overflow-x: auto;
+    }
+  </style>
 </head>
 <body>
-  <div class="chat-container">
-    <div id="chat-box" class="chat-box"></div>
-    <input type="text" id="message-input" placeholder="Type your message" />
-    <button id="send-button">Send</button>
+
+  <h1>Peer-to-Peer Doubt Solver</h1>
+
+  <div class="form-container">
+    <h2>Post a Question</h2>
+    <form id="questionForm">
+      <label>Question Content:</label>
+      <textarea id="content" rows="3" required></textarea>
+
+      <label>Tags (comma separated):</label>
+      <input type="text" id="tags" placeholder="javascript, html" />
+
+      <label>Code Snippet (optional):</label>
+      <textarea id="codeSnippet" rows="4"></textarea>
+
+      <button type="submit">Submit</button>
+    </form>
   </div>
 
-  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <div class="questions-container">
+    <h2>Recent Questions</h2>
+    <div id="questionsList"></div>
+  </div>
+
   <script>
-    const socket = io("http://localhost:5000");
+    const API_URL = "http://localhost:5000/api/questions";
 
-const chatBox = document.getElementById("chat-box");
-const input = document.getElementById("message-input");
-const sendBtn = document.getElementById("send-button");
+    async function fetchQuestions() {
+      const res = await fetch(API_URL);
+      const data = await res.json();
+      const container = document.getElementById("questionsList");
+      container.innerHTML = "";
 
-// Receive messages from the server
-socket.on("receive_message", (data) => {
-  const p = document.createElement("p");
-  p.textContent = `💬 ${data.message}`;
-  chatBox.appendChild(p);
-  chatBox.scrollTop = chatBox.scrollHeight; // Auto scroll to bottom
-});
+      if (data.length === 0) {
+        container.innerHTML = "<p>No questions yet.</p>";
+        return;
+      }
 
-// Send message
-sendBtn.addEventListener("click", () => {
-  const message = input.value.trim();
-  if (message !== "") {
-    socket.emit("send_message", { message });
-    input.value = "";
-  }
-});
+      data.forEach(q => {
+        const div = document.createElement("div");
+        div.className = "question-card";
 
-// Optional: send on "Enter" key
-input.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    sendBtn.click();
-  }
-});
+        div.innerHTML = `
+          <p><strong>${q.content}</strong></p>
+          <p class="tags">Tags: ${q.tags.map(tag=>`#${tag}`).join(',')}</p>
+          ${q.codeSnippet ? `<pre><code>${q.codeSnippet}</code></pre>` : ""}
+        `;
+        container.appendChild(div);
+      });
+    }
 
+    document.getElementById("questionForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const content = document.getElementById("content").value.trim();
+      const tags = document.getElementById("tags").value.trim().split(",").map(tag => tag.trim()).filter(Boolean);
+      const codeSnippet = document.getElementById("codeSnippet").value.trim();
+
+      const body = { content, tags, codeSnippet };
+
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+      if (res.ok) {
+        alert("Question posted!");
+        document.getElementById("questionForm").reset();
+        fetchQuestions();
+      } else {
+        alert("Error posting question.");
+      }
+    });
+
+    fetchQuestions();
   </script>
+
 </body>
 </html>
